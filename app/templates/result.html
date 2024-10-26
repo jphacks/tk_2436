@@ -9,7 +9,7 @@
     <h1>処理結果</h1>
 
     <h2>最終的な画像</h2>
-    <img src="{{ url_for('static', filename=image_path) }}" alt="Processed Image" style="max-width: 100%; height: auto;">
+    <img src="{{ url_for('static', filename='uploads/' + image_path) }}" alt="Processed Image" style="max-width: 100%; height: auto;">
 
     <h2>おすすめの化粧品</h2>
     <ul>

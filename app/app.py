@@ -86,6 +86,21 @@ def process_image():
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
     image_file.save(image_path)
 
+    # 元の画像の平均色相、彩度、明度を取得
+    original_image = cv2.imread(image_path)
+    original_hsv = cv2.cvtColor(original_image, cv2.COLOR_BGR2HSV)
+    original_hue = np.mean(original_hsv[:, :, 0])  # 平均色相
+    original_saturation = np.mean(original_hsv[:, :, 1])  # 平均彩度
+    original_lightness = np.mean(original_hsv[:, :, 2])  # 平均明度
+
+    # Processing the image
+    try:
+        adjusted_image = adjust_skin_color(image_path, hue_shift, saturation_scale, lightness_scale)
+        if adjusted_image is None:
+            raise ValueError("Image processing failed.")
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
     # 画像を処理して調整された画像のパスを返す
     adjusted_image = adjust_skin_color(image_path, hue_shift, saturation_scale, lightness_scale)
 
@@ -93,10 +108,28 @@ def process_image():
         return jsonify({'error': 'Image processing failed.'}), 500
 
     # 結果画像を保存してパスを返す
-    result_image_path = os.path.join('static', f'adjusted_image_{timestamp}.jpg')
+    result_image_path = os.path.join(app.config['UPLOAD_FOLDER'], f'adjusted_image_{timestamp}.jpg')  # 保存先を変更
     cv2.imwrite(result_image_path, adjusted_image)
 
-    return jsonify({'image_path': url_for('static', filename=f'adjusted_image_{timestamp}.jpg')})
+    # 操作後の色相、彩度、明度を計算
+    adjusted_hsv = cv2.cvtColor(adjusted_image, cv2.COLOR_BGR2HSV)
+    adjusted_hue = np.mean(adjusted_hsv[:, :, 0])
+    adjusted_saturation = np.mean(adjusted_hsv[:, :, 1])
+    adjusted_lightness = np.mean(adjusted_hsv[:, :, 2])
+
+    # 相対的な変化量を計算
+    hue_change = adjusted_hue - original_hue
+    saturation_change = adjusted_saturation - original_saturation
+    lightness_change = adjusted_lightness - original_lightness
+
+    return jsonify({
+        'image_path': url_for('static', filename=f'uploads/adjusted_image_{timestamp}.jpg'),
+        'hue_change': hue_change,
+        'saturation_change': saturation_change,
+        'lightness_change': lightness_change
+    })
+
+
 
 def adjust_skin_color(image_path, hue_shift=0, saturation_scale=1.0, lightness_scale=1.0):
     image = cv2.imread(image_path)
@@ -190,18 +223,6 @@ def get_cosmetic_recommendations():
     recommendations = dp[best_state][1] if dp[best_state][1] else []
 
     return jsonify(recommendations=recommendations)
-
-
-@app.route('/result')
-def result():
-    image_path = request.args.get('image_path')
-    recommendations = request.args.get('recommendations')
-    if recommendations:
-        recommendations = json.loads(recommendations)
-    else:
-        recommendations = []
-
-    return render_template('result.html', image_path=image_path, recommendations=recommendations)
 
 
 if __name__ == '__main__':

@@ -29,6 +29,7 @@
 
     <button id="findCosmetics">化粧品を検索</button>
     <div id="recommendations"></div>
+    <a href="{{ url_for('index') }}">ホーム</a>
 
 
     
@@ -69,6 +70,8 @@
                     "彩度": 80,
                     "明度": 85
                 };
+
+                $('#loadingIndicator').show();
     
                  // 画像処理のAJAXリクエスト
                 $.ajax({
