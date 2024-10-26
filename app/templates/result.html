@@ -2,11 +2,12 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>結果表示</title>
+    <title>結果</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
-    <h1>アップロードされた画像</h1>
-    <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="アップロード画像" width="300">
-    <p>画像の調整機能や化粧品の推薦機能をここに追加できます。</p>
+    <h1>処理結果</h1>
+    <p>処理された結果をここに表示します。</p>
+    <a href="{{ url_for('index') }}">戻る</a>
 </body>
 </html>

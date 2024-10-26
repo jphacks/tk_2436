@@ -1,12 +1,15 @@
 body {
     font-family: Arial, sans-serif;
-    text-align: center;
+    margin: 20px;
 }
+
 h1 {
     color: #333;
 }
-img {
-    margin-top: 20px;
-    border: 2px solid #ccc;
-    border-radius: 5px;
+
+a {
+    display: inline-block;
+    margin-top: 10px;
+    color: blue;
+    text-decoration: none;
 }
