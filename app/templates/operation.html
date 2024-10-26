@@ -59,16 +59,16 @@
     
                 // 現在のトーンを取得
                 const currentTone = {
-                    "色相": parseInt($('#hueShift').val()),
-                    "彩度": parseFloat($('#saturationScale').val()),
-                    "明度": parseFloat($('#lightnessScale').val())
+                    "色相": 0,
+                    "彩度": 0,
+                    "明度": 0
                 };
     
                 // 目標の肌トーン（この部分は必要に応じて変更）
                 const targetTone = {
-                    "色相": 90,
-                    "彩度": 80,
-                    "明度": 85
+                    "色相": parseInt($('#hueShift').val()),
+                    "彩度": parseFloat($('#saturationScale').val()),
+                    "明度": parseFloat($('#lightnessScale').val())
                 };
 
                 $('#loadingIndicator').show();
@@ -169,17 +169,20 @@
 
             $('#findCosmetics').click(function() {
             const currentTone = {
+                "色相": 0,
+                "彩度": 0,
+                "明度": 0
+            };
+
+            // 目標の肌トーン（必要に応じて変更）
+            const targetTone = {
                 "色相": parseInt($('#hueShift').val()),
                 "彩度": parseFloat($('#saturationScale').val()),
                 "明度": parseFloat($('#lightnessScale').val())
             };
 
-            // 目標の肌トーン（必要に応じて変更）
-            const targetTone = {
-                "色相": 90,
-                "彩度": 80,
-                "明度": 85
-            };
+            console.log(currentTone);
+            console.log(targetTone);
 
             // AJAXリクエストでデータを送信
             $.ajax({
