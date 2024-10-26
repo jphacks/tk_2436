@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>結果表示</title>
+</head>
+<body>
+    <h1>アップロードされた画像</h1>
+    <img src="{{ url_for('uploaded_file', filename=filename) }}" alt="アップロード画像" width="300">
+    <p>画像の調整機能や化粧品の推薦機能をここに追加できます。</p>
+</body>
+</html>
