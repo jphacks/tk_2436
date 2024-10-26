@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>機能一覧</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <h1>アプリケーションの機能</h1>
+    <ul>
+        <li><a href="{{ url_for('approad') }}">画像アップロード</a></li>
+        <li><a href="{{ url_for('operation') }}">画像操作</a></li>
+        <li><a href="{{ url_for('result') }}">結果表示</a></li>
+    </ul>
+</body>
+</html>
