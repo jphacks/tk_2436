@@ -2,15 +2,109 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>画像操作</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
 <body>
-    <h1>画像操作</h1>
-    <form action="{{ url_for('operation') }}" method="POST">
-        <!-- 画像操作のUI要素を追加 -->
-        <button type="submit">処理する</button>
-    </form>
-    <a href="{{ url_for('index') }}">戻る</a>
+    <h1>画像操作ページ</h1>
+    <h2>アップロードされた画像</h2>
+    <img id="uploadedImage" src="{{ url_for('static', filename='uploads/' + image_path) }}" alt="Uploaded Image" style="max-width: 100%; height: auto;">
+
+    <h2>色調整</h2>
+    <label for="hueShift">Hue Shift:</label>
+    <input type="range" id="hueShift" min="-179" max="179" value="0"><br>
+    <label for="saturationScale">Saturation Scale:</label>
+    <input type="range" id="saturationScale" min="0" max="3" step="0.1" value="1"><br>
+    <label for="lightnessScale">Lightness Scale:</label>
+    <input type="range" id="lightnessScale" min="0" max="3" step="0.1" value="1"><br>
+    
+    <button id="processImage">画像処理</button>
+    
+    <input type="file" id="imageFile" accept="image/*" style="display: none;">
+    <button id="selectFileButton">画像を選択</button>
+    
+    <h2>結果</h2>
+    <img id="resultImage" src="" alt="処理された画像" style="display:none;">
+    
+    <script>
+        $(document).ready(function() {
+            const uploadedImagePath = "{{ url_for('static', filename='uploads/' + image_path) }}";
+            $('#uploadedImage').attr('src', uploadedImagePath);
+    
+            // ボタンクリック時にファイルを取得してリクエストを送信
+            $('#processImage').click(function() {
+                const imageFile = document.querySelector('#imageFile').files[0];
+    
+                // ファイルが未選択の場合はメッセージを表示して処理を停止
+                if (!imageFile) {
+                    alert("画像ファイルを選択してください。");
+                    return;
+                }
+    
+                const formData = new FormData();
+                formData.append('image', imageFile);
+                formData.append('hue_shift', Math.max(-10, Math.min(10, $('#hueShift').val()))); // 色相の範囲制限
+                formData.append('saturation_scale', Math.max(0.8, Math.min(1.5, $('#saturationScale').val()))); // 彩度の範囲制限
+                formData.append('lightness_scale', Math.max(0.8, Math.min(1.2, $('#lightnessScale').val()))); // 明度の範囲制限
+    
+                $.ajax({
+                    url: '/process_image',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function(response) {
+                        $('#resultImage').attr('src', response.image_path).show();
+                    },
+                    error: function(err) {
+                        console.error(err);
+                        alert("画像の処理に失敗しました。");
+                    }
+                });
+            });
+    
+            $('#hueShift, #saturationScale, #lightnessScale').on('input', function() {
+                const imageFile = document.querySelector('#imageFile').files[0];
+    
+                if (!imageFile) {
+                    console.error("入力にファイルがありません。");
+                    alert("画像ファイルを選択してください。");
+                    return;
+                }
+    
+                const formData = new FormData();
+                formData.append('image', imageFile);
+                formData.append('hue_shift', Math.max(-10, Math.min(10, $('#hueShift').val()))); // 色相の範囲制限
+                formData.append('saturation_scale', Math.max(0.8, Math.min(1.5, $('#saturationScale').val()))); // 彩度の範囲制限
+                formData.append('lightness_scale', Math.max(0.8, Math.min(1.2, $('#lightnessScale').val()))); // 明度の範囲制限
+    
+                $.ajax({
+                    url: '/process_image',
+                    type: 'POST',
+                    data: formData,
+                    contentType: false,
+                    processData: false,
+                    success: function(response) {
+                        $('#resultImage').attr('src', response.image_path).show();
+                    },
+                    error: function(err) {
+                        console.error(err);
+                        alert("画像の処理に失敗しました。");
+                    }
+                });
+            });
+    
+            $('#selectFileButton').click(function() {
+                $('#imageFile').click();
+            });
+    
+            $('#imageFile').change(function() {
+                const uploadedImagePath = URL.createObjectURL(this.files[0]);
+                $('#uploadedImage').attr('src', uploadedImagePath);
+            });
+        });
+    </script>
+    
 </body>
 </html>

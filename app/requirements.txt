@@ -10,3 +10,5 @@ jinja2==2.11.3
 itsdangerous==2.0.1
 SQLAlchemy==1.4.46
 markupsafe==2.0.1
+opencv-python==4.7.0.72
+numpy==1.23.4
