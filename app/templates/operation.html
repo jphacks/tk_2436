@@ -26,6 +26,25 @@
     
     <h2>結果</h2>
     <img id="resultImage" src="" alt="処理された画像" style="display:none;">
+
+    <!-- operation.html にフォームを追加 -->
+    <h2>肌トーン設定</h2>
+    <label for="currentHue">現在の色相:</label>
+    <input type="number" id="currentHue" value="40"><br>
+    <label for="currentSaturation">現在の彩度:</label>
+    <input type="number" id="currentSaturation" value="20"><br>
+    <label for="currentLightness">現在の明度:</label>
+    <input type="number" id="currentLightness" value="30"><br>
+
+    <label for="targetHue">目標の色相:</label>
+    <input type="number" id="targetHue" value="90"><br>
+    <label for="targetSaturation">目標の彩度:</label>
+    <input type="number" id="targetSaturation" value="80"><br>
+    <label for="targetLightness">目標の明度:</label>
+    <input type="number" id="targetLightness" value="85"><br>
+
+    <button id="findCosmetics">化粧品を検索</button>
+
     
     <script>
         $(document).ready(function() {
@@ -48,14 +67,32 @@
                 formData.append('saturation_scale', Math.max(0.8, Math.min(1.5, $('#saturationScale').val()))); // 彩度の範囲制限
                 formData.append('lightness_scale', Math.max(0.8, Math.min(1.2, $('#lightnessScale').val()))); // 明度の範囲制限
     
+                const currentTone = {
+                    "色相": parseInt($('#hueShift').val()),
+                    "彩度": parseFloat($('#saturationScale').val()),
+                    "明度": parseFloat($('#lightnessScale').val())
+                };
+
+                // 目標の肌トーン（この部分は必要に応じて変更）
+                const targetTone = {
+                    "色相": 90,
+                    "彩度": 80,
+                    "明度": 85
+                };
+
+                // AJAXリクエストでデータを送信
                 $.ajax({
                     url: '/process_image',
                     type: 'POST',
-                    data: formData,
-                    contentType: false,
-                    processData: false,
+                    data: {
+                        current_tone: currentTone,
+                        target_tone: targetTone,
+                        // ...（他のデータ）
+                    },
                     success: function(response) {
                         $('#resultImage').attr('src', response.image_path).show();
+                        // ここで化粧品の提案を表示するためのリクエストを行います
+                        getCosmeticRecommendations(currentTone, targetTone);
                     },
                     error: function(err) {
                         console.error(err);
@@ -63,6 +100,40 @@
                     }
                 });
             });
+
+            function getCosmeticRecommendations(currentTone, targetTone) {
+                $.ajax({
+                    url: '/get_cosmetic_recommendations',  // サーバーサイドのエンドポイント
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        current_tone: currentTone,
+                        target_tone: targetTone
+                    }),
+                    success: function(response) {
+                        // 提案された化粧品を表示する処理
+                        displayRecommendations(response.recommendations);
+                    },
+                    error: function(err) {
+                        console.error(err);
+                        alert("化粧品の取得に失敗しました。");
+                    }
+                });
+            }
+
+            function displayRecommendations(recommendations) {
+                // 推奨化粧品をHTMLに表示する処理
+                // 例えば、リストとして表示する
+                const recommendationsDiv = $('#recommendations');
+                recommendationsDiv.empty();
+                if (recommendations.length === 0) {
+                    recommendationsDiv.append('<p>おすすめの化粧品はありません。</p>');
+                } else {
+                    recommendations.forEach(function(product) {
+                        recommendationsDiv.append(`<p>${product}</p>`);
+                    });
+                }
+            }
     
             $('#hueShift, #saturationScale, #lightnessScale').on('input', function() {
                 const imageFile = document.querySelector('#imageFile').files[0];

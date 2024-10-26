@@ -2,12 +2,24 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>結果</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
     <h1>処理結果</h1>
-    <p>処理された結果をここに表示します。</p>
+
+    <h2>最終的な画像</h2>
+    <img src="{{ url_for('static', filename=image_path) }}" alt="Processed Image" style="max-width: 100%; height: auto;">
+
+    <h2>おすすめの化粧品</h2>
+    <ul>
+        {% for product in recommendations %}
+            <li>{{ product }}</li>
+        {% else %}
+            <li>おすすめの化粧品はありません。</li>
+        {% endfor %}
+    </ul>
+
     <a href="{{ url_for('index') }}">戻る</a>
 </body>
 </html>

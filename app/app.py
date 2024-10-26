@@ -4,6 +4,10 @@ import cv2
 import numpy as np
 import os
 import time
+import json
+from itertools import combinations
+
+
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -45,8 +49,24 @@ def approad():
 @app.route('/operation', methods=['GET', 'POST'])
 def operation():
     image_path = request.args.get('image_path')
+    recommendations = []
     if request.method == 'POST':
-        return redirect(url_for('result'))
+        current_tone = {
+            "色相": int(request.form['currentHue']),
+            "彩度": int(request.form['currentSaturation']),
+            "明度": int(request.form['currentLightness'])
+        }
+        target_tone = {
+            "色相": int(request.form['targetHue']),
+            "彩度": int(request.form['targetSaturation']),
+            "明度": int(request.form['targetLightness'])
+        }
+
+        # AJAXを通じて化粧品の提案を取得
+        recommendations = get_cosmetic_recommendations(current_tone, target_tone)
+
+        # ここでリダイレクト
+        return redirect(url_for('result', image_path=image_path, recommendations=json.dumps(recommendations)))
 
     return render_template('operation.html', image_path=image_path)
 
@@ -115,9 +135,65 @@ def adjust_skin_color(image_path, hue_shift=0, saturation_scale=1.0, lightness_s
 
     return result
 
+@app.route('/get_cosmetic_recommendations', methods=['POST'])
+def get_cosmetic_recommendations():
+    data = request.get_json()
+    current_tone = data['current_tone']
+    target_tone = data['target_tone']
+
+    # 化粧品データベースの読み込み
+    with open("combinatorial_optimization/cosmetics_database.json", "r", encoding="utf-8") as f:
+        cosmetics_data = json.load(f)
+
+    # DPテーブルの初期化
+    dp = {}
+    initial_state = tuple(current_tone.values())
+    dp[initial_state] = (float("inf"), None)
+
+    # 商品タイプのリストを作成
+    product_types = set(item["type"] for item in cosmetics_data)
+
+    # 遷移を行う関数
+    def update_dp(selected_products):
+        new_tone = {
+            feature: current_tone[feature]
+            + sum(product[feature] for product in selected_products)
+            for feature in target_tone
+        }
+        diff = sum((new_tone[feature] - target_tone[feature]) ** 2 for feature in target_tone)
+        new_state = tuple(new_tone.values())
+        if new_state not in dp or dp[new_state][0] > diff:
+            dp[new_state] = (diff, [product["name"] for product in selected_products])
+
+    # 各商品タイプごとに商品をグループ化
+    grouped_products = {ptype: [] for ptype in product_types}
+    for product in cosmetics_data:
+        grouped_products[product["type"]].append(product)
+
+    # 組み合わせの生成とDP更新
+    for r in range(1, len(cosmetics_data) + 1):
+        for product_combination in combinations(cosmetics_data, r):
+            if len(set(p["type"] for p in product_combination)) == len(product_combination):
+                update_dp(product_combination)
+
+    # 最適解の探索
+    best_state = min(dp, key=lambda x: dp[x][0])
+    recommendations = dp[best_state][1] if dp[best_state][1] else []
+
+    return jsonify(recommendations=recommendations)
+
+
 @app.route('/result')
 def result():
-    return render_template('result.html')
+    image_path = request.args.get('image_path')
+    recommendations = request.args.get('recommendations')
+    if recommendations:
+        recommendations = json.loads(recommendations)
+    else:
+        recommendations = []
+
+    return render_template('result.html', image_path=image_path, recommendations=recommendations)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
