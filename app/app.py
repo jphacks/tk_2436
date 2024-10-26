@@ -8,7 +8,6 @@ import json
 from itertools import combinations
 
 
-
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'  # アップロードフォルダをstaticに指定
@@ -38,7 +37,8 @@ def approad():
             return redirect(url_for('approad'))
 
         # アップロードされた画像を保存
-        image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_file.filename)
+        image_filename = f"{int(time.time())}_{image_file.filename}"
+        image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
         image_file.save(image_path)
 
         # operationページに画像パスを渡してリダイレクト
@@ -138,12 +138,21 @@ def adjust_skin_color(image_path, hue_shift=0, saturation_scale=1.0, lightness_s
 @app.route('/get_cosmetic_recommendations', methods=['POST'])
 def get_cosmetic_recommendations():
     data = request.get_json()
-    current_tone = data['current_tone']
-    target_tone = data['target_tone']
+    if not data:
+        return jsonify({'error': 'No data provided.'}), 400
+
+    current_tone = data.get('current_tone')
+    target_tone = data.get('target_tone')
+
+    if not current_tone or not target_tone:
+        return jsonify({'error': 'Missing tone data.'}), 400
 
     # 化粧品データベースの読み込み
-    with open("combinatorial_optimization/cosmetics_database.json", "r", encoding="utf-8") as f:
-        cosmetics_data = json.load(f)
+    try:
+        with open("cosmetics_database.json", "r", encoding="utf-8") as f:
+            cosmetics_data = json.load(f)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
     # DPテーブルの初期化
     dp = {}
