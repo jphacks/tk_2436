@@ -13,9 +13,6 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# MediaPipeの顔検出ソリューションを初期化
-mp_face_detection = mp.solutions.face_detection.FaceDetection()
-
 db = SQLAlchemy(app)
 
 class ImageData(db.Model):
@@ -23,6 +20,9 @@ class ImageData(db.Model):
     image_path = db.Column(db.String(150), nullable=False)
 
 db.create_all()
+
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1)
 
 @app.route('/')
 def index():
@@ -83,30 +83,19 @@ def process_image():
     saturation_scale = float(request.form['saturation_scale'])
     lightness_scale = float(request.form['lightness_scale'])
 
-    # アップロードされた画像を一時的に保存
     timestamp = int(time.time())
     image_filename = f"{timestamp}_{image_file.filename}"
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
     image_file.save(image_path)
 
-    # 画像の読み込みと顔検出
-    image = cv2.imread(image_path)
-    results = mp_face_detection.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    original_image = cv2.imread(image_path)
+    adjusted_image = process_face_segmentation(original_image, hue_shift, saturation_scale, lightness_scale)
 
-    # 顔領域の処理
-    if results.detections:
-        for detection in results.detections:
-            bboxC = detection.location_data.relative_bounding_box
-            h, w, _ = image.shape
-            x, y, width, height = int(bboxC.xmin * w), int(bboxC.ymin * h), int(bboxC.width * w), int(bboxC.height * h)
+    if adjusted_image is None:
+        return jsonify({'error': 'Image processing failed.'}), 500
 
-            face = image[y:y+height, x:x+width]
-            processed_face = adjust_skin_color(face, hue_shift, saturation_scale, lightness_scale)
-            image[y:y+height, x:x+width] = processed_face
-
-    # 処理結果の保存とレスポンス
     result_image_path = os.path.join(app.config['UPLOAD_FOLDER'], f'adjusted_image_{timestamp}.jpg')
-    cv2.imwrite(result_image_path, image)
+    cv2.imwrite(result_image_path, adjusted_image)
 
     return jsonify({
         'image_path': url_for('static', filename=f'uploads/adjusted_image_{timestamp}.jpg')
@@ -114,14 +103,42 @@ def process_image():
 
 def adjust_skin_color(face_image, hue_shift=0, saturation_scale=1.0, lightness_scale=1.0):
     hsv = cv2.cvtColor(face_image, cv2.COLOR_BGR2HSV)
+
+    # 色相、彩度、明度の調整
     h_channel, s_channel, v_channel = cv2.split(hsv)
-
     h_channel = np.mod(h_channel.astype(np.int32) + hue_shift, 180).astype(np.uint8)
-    s_channel = cv2.multiply(s_channel, saturation_scale).astype(np.uint8)
-    v_channel = cv2.multiply(v_channel, lightness_scale).astype(np.uint8)
+    s_channel = np.clip(cv2.multiply(s_channel, saturation_scale), 0, 255).astype(np.uint8)
+    v_channel = np.clip(cv2.multiply(v_channel, lightness_scale), 0, 255).astype(np.uint8)
 
+    # 調整後の画像を合成
     adjusted_hsv = cv2.merge((h_channel, s_channel, v_channel))
-    return cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
+    adjusted_face = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
+    return adjusted_face
+
+def process_face_segmentation(image, hue_shift, saturation_scale, lightness_scale):
+    # MediaPipeで顔のランドマークを検出
+    results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    if results.multi_face_landmarks:
+        face_landmarks = results.multi_face_landmarks[0]
+        
+        # 顔ランドマークを使ってマスクを生成
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        points = [(int(landmark.x * image.shape[1]), int(landmark.y * image.shape[0])) for landmark in face_landmarks.landmark]
+        hull = cv2.convexHull(np.array(points))
+        cv2.fillConvexPoly(mask, hull, 255)
+        
+        # 顔部分のマスクをかけ、顔のみ画像処理
+        face = cv2.bitwise_and(image, image, mask=mask)
+        processed_face = adjust_skin_color(face, hue_shift, saturation_scale, lightness_scale)
+        
+        # 元の画像と処理した顔画像を合成
+        inverse_mask = cv2.bitwise_not(mask)
+        background = cv2.bitwise_and(image, image, mask=inverse_mask)
+        result = cv2.add(background, processed_face)
+        return result
+    else:
+        print("Error: No face detected.")
+        return None
 
 @app.route('/get_cosmetic_recommendations', methods=['POST'])
 def get_cosmetic_recommendations():
