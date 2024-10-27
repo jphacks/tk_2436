@@ -2,7 +2,7 @@
 ### 化粧品選びが変わる！！！
   理想的な自分の姿を追い求めよう！
 
-[![IMAGE ALT TEXT HERE](https://jphacks.com/wp-content/uploads/2024/07/JPHACKS2024_ogp.jpg)](https://www.youtube.com/watch?v=DZXUkEj-CSI)
+![cosme canvas image]()
 
 ## 製品概要
 ### 背景(製品開発のきっかけ、課題等）
