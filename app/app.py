@@ -31,7 +31,6 @@ def index():
 @app.route('/approad', methods=['GET', 'POST'])
 def approad():
     if request.method == 'POST':
-        # 画像アップロードの処理
         if 'image' not in request.files:
             return redirect(url_for('approad'))
 
@@ -39,13 +38,11 @@ def approad():
         if image_file.filename == '':
             return redirect(url_for('approad'))
 
-        # アップロードされた画像を保存
         image_filename = f"{int(time.time())}_{image_file.filename}"
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
         image_file.save(image_path)
 
-        # operationページに画像パスを渡してリダイレクト
-        return redirect(url_for('operation', image_path=image_file.filename))
+        return redirect(url_for('operation', image_path=image_filename))
 
     return render_template('approad.html')
 
@@ -54,22 +51,23 @@ def operation():
     image_path = request.args.get('image_path')
     recommendations = []
     if request.method == 'POST':
-        current_tone = {
-            "色相": int(request.form['currentHue']),
-            "彩度": int(request.form['currentSaturation']),
-            "明度": int(request.form['currentLightness'])
-        }
-        target_tone = {
-            "色相": int(request.form['targetHue']),
-            "彩度": int(request.form['targetSaturation']),
-            "明度": int(request.form['targetLightness'])
-        }
+        hue_shift = int(request.form['hue_shift'])
+        saturation_scale = float(request.form['saturation_scale'])
+        lightness_scale = float(request.form['lightness_scale'])
 
-        # AJAXを通じて化粧品の提案を取得
-        recommendations = get_cosmetic_recommendations(current_tone, target_tone)
+        recommendations = get_cosmetic_recommendations(request.form)
 
-        # ここでリダイレクト
-        return redirect(url_for('result', image_path=image_path, recommendations=json.dumps(recommendations)))
+        image_full_path = os.path.join(app.config['UPLOAD_FOLDER'], image_path)
+        original_image = cv2.imread(image_full_path)
+        adjusted_image = process_face_segmentation(original_image, hue_shift, saturation_scale, lightness_scale)
+
+        if adjusted_image is None:
+            return jsonify({'error': 'Image processing failed.'}), 500
+
+        result_image_path = os.path.join(app.config['UPLOAD_FOLDER'], f'adjusted_image_{int(time.time())}.jpg')
+        cv2.imwrite(result_image_path, adjusted_image)
+
+        return redirect(url_for('result', image_path=os.path.basename(result_image_path), recommendations=json.dumps(recommendations)))
 
     return render_template('operation.html', image_path=image_path)
 
@@ -101,44 +99,66 @@ def process_image():
         'image_path': url_for('static', filename=f'uploads/adjusted_image_{timestamp}.jpg')
     })
 
-def adjust_skin_color(face_image, hue_shift=0, saturation_scale=1.0, lightness_scale=1.0):
-    hsv = cv2.cvtColor(face_image, cv2.COLOR_BGR2HSV)
+# 肌色調整のための関数
+def adjust_skin_color(face, hue_shift=0, saturation_scale=1.0, lightness_scale=1.0):
+    # HSV色空間に変換し、色相、彩度、明度を調整
+    hsv = cv2.cvtColor(face, cv2.COLOR_BGR2HSV)
+    
+    # 肌色の範囲を定義（HSV色空間）
+    lower_skin = np.array([0, 20, 40], dtype=np.uint8)  # 色相、彩度、明度
+    upper_skin = np.array([30, 255, 255], dtype=np.uint8)  # 色相、彩度、明度
 
-    # 色相、彩度、明度の調整
-    h_channel, s_channel, v_channel = cv2.split(hsv)
+    # 肌色領域のマスクを作成
+    skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
+
+    # マスクを使って肌色領域を抽出
+    skin = cv2.bitwise_and(face, face, mask=skin_mask)
+
+    # HSV色空間で色調整
+    skin_hsv = cv2.cvtColor(skin, cv2.COLOR_BGR2HSV)
+    h_channel, s_channel, v_channel = cv2.split(skin_hsv)
+
     h_channel = np.mod(h_channel.astype(np.int32) + hue_shift, 180).astype(np.uint8)
     s_channel = np.clip(cv2.multiply(s_channel, saturation_scale), 0, 255).astype(np.uint8)
     v_channel = np.clip(cv2.multiply(v_channel, lightness_scale), 0, 255).astype(np.uint8)
 
-    # 調整後の画像を合成
     adjusted_hsv = cv2.merge((h_channel, s_channel, v_channel))
-    adjusted_face = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
-    return adjusted_face
+    adjusted_skin = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
+
+    return adjusted_skin
 
 def process_face_segmentation(image, hue_shift, saturation_scale, lightness_scale):
-    # MediaPipeで顔のランドマークを検出
     results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     if results.multi_face_landmarks:
         face_landmarks = results.multi_face_landmarks[0]
-        
-        # 顔ランドマークを使ってマスクを生成
+
+        # マスクを作成して顔の部分を抽出
         mask = np.zeros(image.shape[:2], dtype=np.uint8)
         points = [(int(landmark.x * image.shape[1]), int(landmark.y * image.shape[0])) for landmark in face_landmarks.landmark]
         hull = cv2.convexHull(np.array(points))
         cv2.fillConvexPoly(mask, hull, 255)
-        
-        # 顔部分のマスクをかけ、顔のみ画像処理
+
+        # 顔の部分を抽出
         face = cv2.bitwise_and(image, image, mask=mask)
-        processed_face = adjust_skin_color(face, hue_shift, saturation_scale, lightness_scale)
         
-        # 元の画像と処理した顔画像を合成
+        # デバッグ出力
+        print("Face Shape:", face.shape)
+
+        # 肌色を調整
+        processed_face = adjust_skin_color(face, hue_shift, saturation_scale, lightness_scale)
+
+        # 元の画像から背景を抽出
         inverse_mask = cv2.bitwise_not(mask)
         background = cv2.bitwise_and(image, image, mask=inverse_mask)
+
+        # 調整された顔の部分と元の背景を結合
         result = cv2.add(background, processed_face)
+
         return result
     else:
         print("Error: No face detected.")
         return None
+
 
 @app.route('/get_cosmetic_recommendations', methods=['POST'])
 def get_cosmetic_recommendations():
@@ -152,22 +172,18 @@ def get_cosmetic_recommendations():
     if not current_tone or not target_tone:
         return jsonify({'error': 'Missing tone data.'}), 400
 
-    # 化粧品データベースの読み込み
     try:
         with open("cosmetics_database.json", "r", encoding="utf-8") as f:
             cosmetics_data = json.load(f)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    # DPテーブルの初期化
     dp = {}
     initial_state = tuple(current_tone.values())
     dp[initial_state] = (float("inf"), None)
 
-    # 商品タイプのリストを作成
     product_types = set(item["type"] for item in cosmetics_data)
 
-    # 遷移を行う関数
     def update_dp(selected_products):
         new_tone = {
             feature: current_tone[feature]
@@ -179,23 +195,19 @@ def get_cosmetic_recommendations():
         if new_state not in dp or dp[new_state][0] > diff:
             dp[new_state] = (diff, [product["name"] for product in selected_products])
 
-    # 各商品タイプごとに商品をグループ化
     grouped_products = {ptype: [] for ptype in product_types}
     for product in cosmetics_data:
         grouped_products[product["type"]].append(product)
 
-    # 組み合わせの生成とDP更新
     for r in range(1, len(cosmetics_data) + 1):
         for product_combination in combinations(cosmetics_data, r):
             if len(set(p["type"] for p in product_combination)) == len(product_combination):
                 update_dp(product_combination)
 
-    # 最適解の探索
     best_state = min(dp, key=lambda x: dp[x][0])
     recommendations = dp[best_state][1] if dp[best_state][1] else []
 
     return jsonify(recommendations=recommendations)
-
 
 if __name__ == '__main__':
     app.run(debug=True)

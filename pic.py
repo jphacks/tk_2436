@@ -12,8 +12,8 @@ def adjust_skin_color(image_path, hue_shift=0, saturation_scale=1.0, lightness_s
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
     # Adjusted skin color range in HSV
-    lower_skin = np.array([0, 30, 60], dtype=np.uint8)
-    upper_skin = np.array([25, 130, 230], dtype=np.uint8)
+    lower_skin = np.array([20, 10, 20], dtype=np.uint8)
+    upper_skin = np.array([45, 50, 95], dtype=np.uint8)
 
     # Create a mask for skin regions
     skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
