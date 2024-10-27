@@ -1,6 +1,7 @@
 body {
     font-family: Arial, sans-serif;
     margin: 20px;
+    background: #FAFAD2;
 }
 
 h1 {
@@ -12,4 +13,13 @@ a {
     margin-top: 10px;
     color: blue;
     text-decoration: none;
+}
+
+.header{ 
+    position: fixed;
+    height: 60px;
+    background: #2C366D;
+    color: #FFF;
+    padding: 0 20px;
+    line-height: 60px;
 }
