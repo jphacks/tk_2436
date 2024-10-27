@@ -2,7 +2,7 @@
 ### 化粧品選びが変わる！！！
   理想的な自分の姿を追い求めよう！
 
-![cosme canvas image]()
+![cosme canvas image](https://github.com/jphacks/tk_2436/blob/main/S__92037122.jpg)
 
 ## 製品概要
 ### 背景(製品開発のきっかけ、課題等）
