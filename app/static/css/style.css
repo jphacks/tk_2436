@@ -1,6 +1,7 @@
 body {
     font-family: Arial, sans-serif;
     margin: 20px;
+    background: #FAFAD2;
 }
 
 h1 {
@@ -14,11 +15,11 @@ a {
     text-decoration: none;
 }
 
-.header{
-    position: relative;
+.header{ 
+    position: fixed;
     height: 60px;
-    background: #FFE4C4;
-    color: #000000;
+    background: #2C366D;
+    color: #FFF;
     padding: 0 20px;
     line-height: 60px;
 }
