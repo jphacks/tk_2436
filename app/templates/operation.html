@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>画像操作</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <h1>画像操作ページ</h1>
@@ -14,12 +15,15 @@
     <h2>色調整</h2>
     <label for="hueShift">Hue Shift (色相のシフト):</label>
     <input type="range" id="hueShift" min="-4" max="4" value="0">
+    <span id="hueValue"></span><br>
     
     <label for="saturationScale">Saturation Scale (彩度の調整):</label>
     <input type="range" id="saturationScale" min="0.6" max="1.4" step="0.1" value="1">
+    <span id="saturationValue"></span><br>
     
     <label for="lightnessScale">Lightness Scale (明度の調整):</label>
     <input type="range" id="lightnessScale" min="0.6" max="1.4" step="0.1" value="1">
+    <span id="lightnessValue"></span><br>
     
     <input type="file" id="imageFile" accept="image/*" style="display: none;">
     <button id="selectFileButton">画像を選択</button>
