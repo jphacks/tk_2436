@@ -11,9 +11,9 @@ def adjust_skin_color(image_path, hue_shift=0, saturation_scale=1.0, lightness_s
     # Convert to HSV color space
     hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
 
-    # Define skin color range in HSV
+    # Adjusted skin color range in HSV
     lower_skin = np.array([0, 30, 60], dtype=np.uint8)
-    upper_skin = np.array([20, 150, 255], dtype=np.uint8)
+    upper_skin = np.array([25, 130, 230], dtype=np.uint8)
 
     # Create a mask for skin regions
     skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
@@ -58,9 +58,6 @@ def adjust_skin_color(image_path, hue_shift=0, saturation_scale=1.0, lightness_s
     cv2.imshow('Original Image (Left) vs Adjusted Skin Color (Right)', combined)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-
-    # Save the result if needed
-    # cv2.imwrite('adjusted_image.jpg', result)
 
 # Usage example
 # Adjust the hue_shift (-179 to 179), saturation_scale (0.0 to 3.0), and lightness_scale (0.0 to 3.0)
