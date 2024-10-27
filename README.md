@@ -2,7 +2,7 @@
 ### 化粧品選びが変わる！！！
   理想的な自分の姿を追い求めよう！
 
-[![IMAGE ALT TEXT HERE](https://jphacks.com/wp-content/uploads/2024/07/JPHACKS2024_ogp.jpg)](https://www.youtube.com/watch?v=DZXUkEj-CSI)
+![cosme canvas image](https://github.com/jphacks/tk_2436/blob/main/S__92037122.jpg)
 
 ## 製品概要
 ### 背景(製品開発のきっかけ、課題等）
@@ -36,10 +36,6 @@
 * より肌の変わり具合が自然になるように、ピクセル単位で顔認識を行い、肌の色を自然に変えていること。
 ## 開発技術
 ### 活用した技術
-#### API・データ
-* 
-* 
-
 #### フレームワーク・ライブラリ・モジュール
 * Flask-SQLAIchemy
 * OpenCV
@@ -49,12 +45,6 @@
 * os
 * time
 * itertools
-
-#### デバイス
-* 
-* 
-
-### 独自技術
 #### ハッカソンで開発した独自機能・技術
 * 独自で開発したものの内容をこちらに記載してください
 * 特に力を入れた部分をファイルリンク、またはcommit_idを記載してください。
