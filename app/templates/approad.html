@@ -1,16 +1,16 @@
+<!-- approad.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>画像アップロード</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
 <body>
     <h1>画像をアップロード</h1>
-    <form action="{{ url_for('approad') }}" method="POST" enctype="multipart/form-data">
+    <form action="" method="post" enctype="multipart/form-data">
         <input type="file" name="image" accept="image/*" required>
         <button type="submit">アップロード</button>
     </form>
-    <a href="{{ url_for('index') }}">戻る</a>
 </body>
 </html>
