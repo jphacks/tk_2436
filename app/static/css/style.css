@@ -13,3 +13,12 @@ a {
     color: blue;
     text-decoration: none;
 }
+
+.header{
+    position: relative;
+    height: 60px;
+    background: #FFE4C4;
+    color: #000000;
+    padding: 0 20px;
+    line-height: 60px;
+}
