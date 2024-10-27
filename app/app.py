@@ -190,7 +190,7 @@ def get_cosmetic_recommendations():
             + sum(product[feature] for product in selected_products)
             for feature in target_tone
         }
-        diff = sum((new_tone[feature] - target_tone[feature]) ** 2 for feature in target_tone)
+        diff = sum((abs(new_tone[feature]) - abs(target_tone[feature])) ** 2 for feature in target_tone)
         new_state = tuple(new_tone.values())
         if new_state not in dp or dp[new_state][0] > diff:
             dp[new_state] = (diff, [product["name"] for product in selected_products])
