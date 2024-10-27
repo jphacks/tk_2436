@@ -41,8 +41,14 @@
 * 
 
 #### フレームワーク・ライブラリ・モジュール
-* 
-* 
+* Flask-SQLAIchemy
+* OpenCV
+* NumPy
+* Mediapipe
+* JSON
+* os
+* time
+* itertools
 
 #### デバイス
 * 
