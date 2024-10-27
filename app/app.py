@@ -160,54 +160,93 @@ def process_face_segmentation(image, hue_shift, saturation_scale, lightness_scal
         return None
 
 
-@app.route('/get_cosmetic_recommendations', methods=['POST'])
+@app.route("/get_cosmetic_recommendations", methods=["POST"])
 def get_cosmetic_recommendations():
     data = request.get_json()
     if not data:
-        return jsonify({'error': 'No data provided.'}), 400
+        return jsonify({"error": "No data provided."}), 400
 
-    current_tone = data.get('current_tone')
-    target_tone = data.get('target_tone')
+    current_tone = data.get("current_tone")
+    target_tone = data.get("target_tone")
 
     if not current_tone or not target_tone:
-        return jsonify({'error': 'Missing tone data.'}), 400
+        return jsonify({"error": "Missing tone data."}), 400
 
+    # 化粧品データベースの読み込み
     try:
         with open("cosmetics_database.json", "r", encoding="utf-8") as f:
             cosmetics_data = json.load(f)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
+    # 最大値と最小値の計算
+    def get_min_max_values(data, features):
+        min_values = {feature: float("inf") for feature in features}
+        max_values = {feature: float("-inf") for feature in features}
+
+        for item in data:
+            for feature in features:
+                value = item[feature]
+                if value < min_values[feature]:
+                    min_values[feature] = value
+                if value > max_values[feature]:
+                    max_values[feature] = value
+
+        return min_values, max_values
+
+    features = ["色相", "彩度", "明度"]
+    min_values, max_values = get_min_max_values(cosmetics_data, features)
+
+    # トーンの正規化
+    def normalize_tone(tone):
+        return {
+            feature: (tone[feature] - min_values[feature])
+            / (max_values[feature] - min_values[feature])
+            for feature in features
+        }
+
+    current_tone = normalize_tone(current_tone)
+    target_tone = normalize_tone(target_tone)
+
+    # DPテーブルの初期化
     dp = {}
     initial_state = tuple(current_tone.values())
     dp[initial_state] = (float("inf"), None)
 
+    # 商品タイプのリストを作成
     product_types = set(item["type"] for item in cosmetics_data)
 
+    # 遷移を行う関数
     def update_dp(selected_products):
         new_tone = {
             feature: current_tone[feature]
             + sum(product[feature] for product in selected_products)
             for feature in target_tone
         }
-        diff = sum((abs(new_tone[feature]) - abs(target_tone[feature])) ** 2 for feature in target_tone)
+        diff = sum(
+            (new_tone[feature] - target_tone[feature]) ** 2 for feature in target_tone
+        )
         new_state = tuple(new_tone.values())
         if new_state not in dp or dp[new_state][0] > diff:
             dp[new_state] = (diff, [product["name"] for product in selected_products])
 
+    # 各商品タイプごとに商品をグループ化
     grouped_products = {ptype: [] for ptype in product_types}
     for product in cosmetics_data:
         grouped_products[product["type"]].append(product)
 
+    # 組み合わせの生成とDP更新
     for r in range(1, len(cosmetics_data) + 1):
         for product_combination in combinations(cosmetics_data, r):
-            if len(set(p["type"] for p in product_combination)) == len(product_combination):
+            if len(set(p["type"] for p in product_combination)) == len(
+                product_combination
+            ):
                 update_dp(product_combination)
 
+    # 最適解の探索
     best_state = min(dp, key=lambda x: dp[x][0])
     recommendations = dp[best_state][1] if dp[best_state][1] else []
 
     return jsonify(recommendations=recommendations)
-
 if __name__ == '__main__':
     app.run(debug=True)
