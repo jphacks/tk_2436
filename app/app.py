@@ -6,12 +6,12 @@ import os
 import time
 import json
 from itertools import combinations
-
+import mediapipe as mp
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-app.config['UPLOAD_FOLDER'] = 'static/uploads'  # アップロードフォルダをstaticに指定
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)  # フォルダが存在しない場合は作成
+app.config['UPLOAD_FOLDER'] = 'static/uploads'
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 db = SQLAlchemy(app)
 
@@ -20,6 +20,9 @@ class ImageData(db.Model):
     image_path = db.Column(db.String(150), nullable=False)
 
 db.create_all()
+
+mp_face_mesh = mp.solutions.face_mesh
+face_mesh = mp_face_mesh.FaceMesh(static_image_mode=True, max_num_faces=1)
 
 @app.route('/')
 def index():
@@ -80,93 +83,62 @@ def process_image():
     saturation_scale = float(request.form['saturation_scale'])
     lightness_scale = float(request.form['lightness_scale'])
 
-    # アップロードされた画像を一時的に保存
     timestamp = int(time.time())
     image_filename = f"{timestamp}_{image_file.filename}"
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
     image_file.save(image_path)
 
-    # 元の画像の平均色相、彩度、明度を取得
     original_image = cv2.imread(image_path)
-    original_hsv = cv2.cvtColor(original_image, cv2.COLOR_BGR2HSV)
-    original_hue = np.mean(original_hsv[:, :, 0])  # 平均色相
-    original_saturation = np.mean(original_hsv[:, :, 1])  # 平均彩度
-    original_lightness = np.mean(original_hsv[:, :, 2])  # 平均明度
-
-    # Processing the image
-    try:
-        adjusted_image = adjust_skin_color(image_path, hue_shift, saturation_scale, lightness_scale)
-        if adjusted_image is None:
-            raise ValueError("Image processing failed.")
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-    # 画像を処理して調整された画像のパスを返す
-    adjusted_image = adjust_skin_color(image_path, hue_shift, saturation_scale, lightness_scale)
+    adjusted_image = process_face_segmentation(original_image, hue_shift, saturation_scale, lightness_scale)
 
     if adjusted_image is None:
         return jsonify({'error': 'Image processing failed.'}), 500
 
-    # 結果画像を保存してパスを返す
-    result_image_path = os.path.join(app.config['UPLOAD_FOLDER'], f'adjusted_image_{timestamp}.jpg')  # 保存先を変更
+    result_image_path = os.path.join(app.config['UPLOAD_FOLDER'], f'adjusted_image_{timestamp}.jpg')
     cv2.imwrite(result_image_path, adjusted_image)
 
-    # 操作後の色相、彩度、明度を計算
-    adjusted_hsv = cv2.cvtColor(adjusted_image, cv2.COLOR_BGR2HSV)
-    adjusted_hue = np.mean(adjusted_hsv[:, :, 0])
-    adjusted_saturation = np.mean(adjusted_hsv[:, :, 1])
-    adjusted_lightness = np.mean(adjusted_hsv[:, :, 2])
-
-    # 相対的な変化量を計算
-    hue_change = adjusted_hue - original_hue
-    saturation_change = adjusted_saturation - original_saturation
-    lightness_change = adjusted_lightness - original_lightness
-
     return jsonify({
-        'image_path': url_for('static', filename=f'uploads/adjusted_image_{timestamp}.jpg'),
-        'hue_change': hue_change,
-        'saturation_change': saturation_change,
-        'lightness_change': lightness_change
+        'image_path': url_for('static', filename=f'uploads/adjusted_image_{timestamp}.jpg')
     })
 
+def adjust_skin_color(face_image, hue_shift=0, saturation_scale=1.0, lightness_scale=1.0):
+    hsv = cv2.cvtColor(face_image, cv2.COLOR_BGR2HSV)
 
-
-def adjust_skin_color(image_path, hue_shift=0, saturation_scale=1.0, lightness_scale=1.0):
-    image = cv2.imread(image_path)
-    if image is None:
-        print("Error: Image not found.")
-        return image
-
-    hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-
-    lower_skin = np.array([0, 30, 60], dtype=np.uint8)
-    upper_skin = np.array([20, 150, 255], dtype=np.uint8)
-
-    skin_mask = cv2.inRange(hsv, lower_skin, upper_skin)
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    skin_mask = cv2.erode(skin_mask, kernel, iterations=2)
-    skin_mask = cv2.dilate(skin_mask, kernel, iterations=2)
-    skin_mask = cv2.GaussianBlur(skin_mask, (3, 3), 0)
-
-    skin = cv2.bitwise_and(image, image, mask=skin_mask)
-
-    skin_hsv = cv2.cvtColor(skin, cv2.COLOR_BGR2HSV)
-    h_channel, s_channel, v_channel = cv2.split(skin_hsv)
-
+    # 色相、彩度、明度の調整
+    h_channel, s_channel, v_channel = cv2.split(hsv)
     h_channel = np.mod(h_channel.astype(np.int32) + hue_shift, 180).astype(np.uint8)
-    s_channel = cv2.multiply(s_channel, saturation_scale)
-    s_channel = np.clip(s_channel, 0, 255).astype(np.uint8)
-    v_channel = cv2.multiply(v_channel, lightness_scale)
-    v_channel = np.clip(v_channel, 0, 255).astype(np.uint8)
+    s_channel = np.clip(cv2.multiply(s_channel, saturation_scale), 0, 255).astype(np.uint8)
+    v_channel = np.clip(cv2.multiply(v_channel, lightness_scale), 0, 255).astype(np.uint8)
 
+    # 調整後の画像を合成
     adjusted_hsv = cv2.merge((h_channel, s_channel, v_channel))
-    adjusted_skin = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
+    adjusted_face = cv2.cvtColor(adjusted_hsv, cv2.COLOR_HSV2BGR)
+    return adjusted_face
 
-    inverse_skin_mask = cv2.bitwise_not(skin_mask)
-    background = cv2.bitwise_and(image, image, mask=inverse_skin_mask)
-    result = cv2.add(background, adjusted_skin)
-
-    return result
+def process_face_segmentation(image, hue_shift, saturation_scale, lightness_scale):
+    # MediaPipeで顔のランドマークを検出
+    results = face_mesh.process(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+    if results.multi_face_landmarks:
+        face_landmarks = results.multi_face_landmarks[0]
+        
+        # 顔ランドマークを使ってマスクを生成
+        mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        points = [(int(landmark.x * image.shape[1]), int(landmark.y * image.shape[0])) for landmark in face_landmarks.landmark]
+        hull = cv2.convexHull(np.array(points))
+        cv2.fillConvexPoly(mask, hull, 255)
+        
+        # 顔部分のマスクをかけ、顔のみ画像処理
+        face = cv2.bitwise_and(image, image, mask=mask)
+        processed_face = adjust_skin_color(face, hue_shift, saturation_scale, lightness_scale)
+        
+        # 元の画像と処理した顔画像を合成
+        inverse_mask = cv2.bitwise_not(mask)
+        background = cv2.bitwise_and(image, image, mask=inverse_mask)
+        result = cv2.add(background, processed_face)
+        return result
+    else:
+        print("Error: No face detected.")
+        return None
 
 @app.route('/get_cosmetic_recommendations', methods=['POST'])
 def get_cosmetic_recommendations():
